@@ -1,0 +1,461 @@
+Attribute VB_Name = "Common"
+'判断数组是否为空的API
+Public Declare PtrSafe Function SafeArrayGetDim Lib "oleaut32.dll" (ByRef saArray() As Any) As Long
+Public Declare PtrSafe Sub Sleep Lib "kernel32" (ByVal dwMilliseconds As Long)
+
+Option Base 1
+
+'关闭或开启各种刷新
+Public Sub closeSwitch(switch As Boolean)
+    If switch Then
+            Application.ScreenUpdating = False '关闭屏幕刷新
+            Application.DisplayAlerts = False '关闭提醒
+            Application.AskToUpdateLinks = False '关闭更新数据提示
+        Else
+            Application.ScreenUpdating = True '打开屏幕刷新
+            Application.DisplayAlerts = True '打开提醒
+            Application.AskToUpdateLinks = True '打开更新数据提示
+    End If
+End Sub
+
+'获取sheet的有数据的最后一行
+'sht 需要获取的工作表
+'colNum 按那一列去获取
+Public Function getLastLineNum(sht As Variant, colNum)
+    getLastLineNum = sht.Cells(sht.Rows.Count, colNum).End(xlUp).Row
+End Function
+
+'获取sheet的有数据的最后一列
+'sht 需要获取的工作表
+'indxNum 按那一行去获取
+Public Function getLastColNum(sht As Variant, indxNum)
+
+    getLastColNum = sht.Cells(indxNum, sht.Columns.Count).End(xlToLeft).Column
+    
+End Function
+
+'随机生成随机的秒数
+Public Sub randomSleep()
+    t = 2 * Rnd
+    Sleep t * 1000
+End Sub
+
+'去掉数组重复值
+Public Function uniqArray(arr)
+    Set d = CreateObject("Scripting.Dictionary")
+    For i = 1 To UBound(arr)
+        If arr(i) <> "" Then
+        
+            d(arr(i)) = 1
+        End If
+    Next i
+    
+    Dim arr2()
+    For Each Key In d.keys
+        arr2 = arrListUtil(arr2, Key)
+    Next Key
+    uniqArray = arr2
+End Function
+
+
+
+'模仿list动态增加数组
+Public Function arrListUtil(arrArray(), value As Variant)
+           
+         If SafeArrayGetDim(arrArray) > 0 Then  '不为空
+            arrLen = UBound(arrArray) + 1
+            ReDim Preserve arrArray(arrLen)
+            arrArray(arrLen) = value
+
+         Else
+            ReDim arrArray(1)
+            arrArray(1) = value
+                                    
+         End If
+         arrListUtil = arrArray
+         
+End Function
+
+Public Function isLinearArray(arr)
+    On Error Resume Next
+    Dim flagNum
+    flagNum = -1
+    '判断是否数组
+    If Not IsArray(arr) Then
+        
+        isLinearArray = flagNum
+    Else
+        '利用出错来判断
+        For i = 1 To 60
+            aa = UBound(arr, i)
+            
+            If Err.Number <> 0 Then
+                flagNum = i - 1
+                Exit For
+            End If
+        Next
+        isLinearArray = flagNum
+    End If
+    End Function
+
+'在rg中寻找匹配kw的单元格，并返回一个行号数组
+Public Function findKeyWordCellNum(rg As Range, kw As String)
+    Dim dKwCells()
+    With rg
+        Set c = .Find(kw, LookAt:=xlWhole)
+        If Not c Is Nothing Then
+            firstAddress = c.Address
+            Do
+                dKwCells = arrListUtil(dKwCells, c.Row)
+                
+                Set c = .FindNext(c)
+            Loop While Not c Is Nothing And c.Address <> firstAddress
+        End If
+    End With
+       If SafeArrayGetDim(dKwCells) > 0 Then '不为空
+            findKeyWordCellNum = dKwCells
+       Else
+            dKwCells = arrListUtil(dKwCells, "未取到数据")
+            findKeyWordCellNum = dKwCells
+       End If
+       
+     
+End Function
+
+'在rg中寻找匹配kw的第一个单元格，并返回行号，未找到返回0---适用于一张表中只有一个单元格包含此关键字
+Public Function findKeyWordRowNum(rg As Range, kw As String)
+    With rg
+        Dim c As Range
+        Set c = rg.Find(kw, LookAt:=xlPart)
+        Dim rowNum
+        If Not c Is Nothing Then
+            rowNum = c.Row
+        Else
+            rowNum = 0
+        End If
+    End With
+       
+        findKeyWordRowNum = rowNum
+End Function
+
+
+'在rg中寻找匹配kw的第一个单元格，并返回找到的单元格内容，未找到返回-1
+Public Function findKeyWordCellValue(rg As Range, kw As String)
+    With rg
+        Dim c As Range
+        Set c = rg.Find(kw, LookAt:=xlPart)
+        Dim cellValue
+        If Not c Is Nothing Then
+            cellValue = c.value
+        Else
+            cellValue = -1
+        End If
+    End With
+       
+        findKeyWordCellValue = cellValue
+End Function
+
+'在rg中寻找包含kw的第一个单元格，并返回行号，未找到返回0---适用于一张表中只有一个单元格包含此关键字
+Public Function findLastKeyWordRowNum(rg As Range, kw As String)
+    With rg
+        Dim c As Range
+        Set c = rg.Find(kw, LookAt:=xlPart, SearchDirection:=xlPrevious)
+        Dim rowNum
+        If Not c Is Nothing Then
+            rowNum = c.Row
+        Else
+            rowNum = 0
+        End If
+    End With
+        findLastKeyWordRowNum = rowNum
+End Function
+
+'清空Range的颜色
+Public Sub cleanRangeColor(rg As Range)
+    With rg.Interior
+        .Pattern = xlNone
+        .TintAndShade = 0
+        .PatternTintAndShade = 0
+    End With
+End Sub
+
+
+
+'将rg中的重复项highlight
+Public Sub highLightDuplicate(rg As Range)
+
+    
+    rg.FormatConditions.AddUniqueValues
+    rg.FormatConditions(rg.FormatConditions.Count).SetFirstPriority
+    rg.FormatConditions(1).DupeUnique = xlDuplicate
+    With rg.FormatConditions(1).Font
+        .Color = -16383844
+        .TintAndShade = 0
+    End With
+    With rg.FormatConditions(1).Interior
+        .PatternColorIndex = xlAutomatic
+        .Color = 13551615
+        .TintAndShade = 0
+    End With
+    rg.FormatConditions(1).StopIfTrue = False
+End Sub
+
+'判断一个数是否为整数
+Public Function isIntNum(x As Double)
+    If x <> Int(x) Then
+
+        isIntNum = False
+    Else
+        
+        isIntNum = True
+    End If
+
+End Function
+
+'排序
+Public Function sortData(arr)
+   
+
+     For i = 1 To UBound(arr)
+         For j = i + 1 To UBound(arr)
+             If arr(i) > arr(j) Then
+                k = arr(i)
+                arr(i) = arr(j)
+                arr(j) = k
+             End If
+         Next
+     Next
+ 
+End Function
+
+'high黄
+Public Sub highYellow(rg As Range)
+
+    
+    With rg.Interior
+        .Pattern = xlSolid
+        .PatternColorIndex = xlAutomatic
+        .Color = 65535
+        .TintAndShade = 0
+        .PatternTintAndShade = 0
+    End With
+End Sub
+
+'删除表中的空行和空列
+'sht 要进行删除的sheet
+'sig 标记是删除行或者列 r 行 c 列
+Public Sub deleteBankRowsOrColumns(sht As Worksheet, sig As String)
+    Dim n%, i%
+        With sht
+            
+            Dim arr()
+            
+            arr = .UsedRange
+            
+            For p = 1 To UBound(arr, 1)
+                For q = 1 To UBound(arr, 2)
+                    arr(p, q) = Trim(arr(p, q))
+                Next q
+            Next p
+            
+            .UsedRange = arr
+            
+            Dim j As Long
+  
+            If sig = "r" Then
+                n = .UsedRange.Columns.Count
+                j = 1
+                For i = 1 To .UsedRange.Rows.Count + .UsedRange.Row - 1
+                
+                    
+                    If Application.WorksheetFunction.CountA(.Range(Cells(j, 1), Cells(j, n))) = 0 Then
+                        
+                        
+                        sht.Rows(j).Delete
+                        j = j - 1
+                        
+                        
+                       
+                    End If
+                    j = j + 1
+                Next
+                
+                
+            Else
+                n = .UsedRange.Rows.Count
+                j = 1
+                For i = 1 To .UsedRange.Columns.Count + .UsedRange.Column - 1
+                    If Application.WorksheetFunction.CountA(.Range(Cells(1, j), Cells(n, j))) = 0 Then
+                        sht.Columns(j).Delete
+                        j = j - 1
+                    End If
+                    j = j + 1
+                Next
+            End If
+        End With
+End Sub
+
+
+'插入空行
+'sht 要进行删除的sheet
+'lineNums 要插入的行数
+Public Sub insertBankRows(sht As Worksheet, lineNums)
+    Dim n%, i%
+        With sht
+            
+            Dim arr()
+            
+            arr = .UsedRange
+            
+            For p = 1 To UBound(arr, 1)
+                For q = 1 To UBound(arr, 2)
+                    arr(p, q) = Trim(arr(p, q))
+                Next q
+            Next p
+            
+            .UsedRange = arr
+            
+            Dim j As Long
+  
+            
+               n = .UsedRange.Columns.Count
+                j = 1
+                Dim ur As Long
+                Dim urc As Long
+                
+                ur = .UsedRange.Row
+                urc = .UsedRange.Rows.Count
+                
+                For i = ur To urc + ur - 1
+                
+                    
+                    If Application.WorksheetFunction.CountA(.Range(Cells(j, 1), Cells(j, n))) <> 0 Then
+                      
+                        j = j + 1
+                        .Cells(j, 1).Resize(lineNums, n).Insert (3)
+                        j = j + lineNums
+                        
+                    Else
+                        j = j + 1
+                       
+                    End If
+                    
+                Next
+                
+                
+            
+            
+            
+            
+        End With
+End Sub
+
+Public Sub FormatButton(rg As Range)
+
+  
+    With rg
+        .HorizontalAlignment = xlCenter
+        .VerticalAlignment = xlBottom
+        .WrapText = False
+        .Orientation = 0
+        .AddIndent = False
+        .IndentLevel = 0
+        .ShrinkToFit = False
+        .ReadingOrder = xlContext
+        .MergeCells = False
+    End With
+    With rg.Font
+        .Color = -16776961
+        .TintAndShade = 0
+    End With
+    
+  
+    rg.Font.Underline = xlUnderlineStyleSingle
+
+End Sub
+
+'按正则表达式获得字符串
+Function getStrByReg(regStr, thestr)
+    Dim reg
+    Dim myStr
+    myStr = ""
+    Set reg = CreateObject("vbscript.regexp")
+    
+    With reg
+        .Pattern = regStr '"\s+"
+
+        .Global = True '加上全局匹配应该就可以了。
+        .IgnoreCase = True
+    End With
+
+  Set mn = reg.Execute(thestr)
+    
+    'On Error Resume Next
+    For Each k In mn
+        myStr = k
+    Next
+    
+    getStrByReg = myStr
+End Function
+
+Function getStrArrByReg(regStr, thestr)
+    Dim reg
+    Dim myStr
+   
+    Set reg = CreateObject("vbscript.regexp")
+
+    With reg
+        .Pattern = regStr '"\s+"
+
+        .Global = True '加上全局匹配应该就可以了。
+        .IgnoreCase = True
+    End With
+
+  Set mn = reg.Execute(thestr)
+    'On Error Resume Next
+    For Each k In mn
+        myStr = myStr & k & ","
+    Next
+    If Not myStr = "" Then
+        myStr = Left(myStr, Len(myStr) - 1)
+    End If
+    getStrArrByReg = myStr
+End Function
+
+'创建CNAP字典
+Private Sub createDcnap(cnapBook As Workbook)
+   Private dcnap As Variant '存放CNAP的字典,Key:D列（发票的编号）,Value:H列，加总的值
+    Set dcnap = CreateObject("Scripting.Dictionary")
+    
+    
+    For Each sht In cnapBook.Sheets
+        
+        
+        n = getLastLineNum(sht, 1)
+        If n > 1 Then
+            Dim rgArray
+            rgArray = sht.Range(sht.Cells(2, 4), sht.Cells(n, 8))
+            For i = 1 To UBound(rgArray)
+                rgKey = Trim(rgArray(i, 1))
+                rgValue = rgArray(i, 5)
+                If Not dcnap.Exists(rgKey) Then
+                             dcnap.Add rgKey, rgValue
+                         
+                    Else
+                             dcnap(rgKey) = dcnap(rgKey) + rgValue
+                         
+                End If
+            
+            Next i
+        End If
+    Next sht
+
+End Sub
+
+
+Sub myTest()
+    Dim strRes
+    strRes = getStrByReg("[A-Z]{3}[0-9]{3}", "Recharge to (Crest: MCN411)")
+    
+End Sub
+
